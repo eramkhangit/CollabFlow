@@ -24,6 +24,8 @@ class TicketPriority(str, enum.Enum):
     critical='critical'
     low='low'
 
+
+
 class Ticket(Base):
     __tablename__="ticket"
 
@@ -36,7 +38,7 @@ class Ticket(Base):
     ticket_type=Column(Enum(TicketType), nullable=False)
 
     # self-referential for sub-task
-    parent_id=Column(String(36), ForeignKey('ticket.id'), nullable=True)
+    parent_id=Column(String(36), ForeignKey('ticket.id'), nullable=True) 
 
     # who involve
     assigned_to=Column(String(36), ForeignKey("user.id"), nullable=True)
@@ -54,10 +56,15 @@ class Ticket(Base):
 
     # self-referential
     parent   = relationship("Ticket", remote_side=[id], back_populates="sub_tasks")
-    sub_tasks = relationship("Ticket", back_populates="parent")
+    # sub_tasks = relationship("Ticket", back_populates="parent")
 
     # Audit fields (timestamps)
     created_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at=Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
     completed_at=Column(DateTime(timezone=True), nullable=True)
     due_date=Column(DateTime(timezone=True), nullable=True)
+
+
+# class SubTicket(Base):
+#     __tablename__='subticket'
+#     id=Column()

@@ -20,6 +20,8 @@ class Settings(BaseSettings):
 
     LOG_LEVEL:str
     LOG_FORMAT:str
+    ENV:str
+    APP_PORT:int
 
     
     model_config = ConfigDict(
