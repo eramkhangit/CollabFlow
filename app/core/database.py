@@ -23,7 +23,7 @@ sessionLocal= sessionmaker(
     bind=engine
 )
 
-# base cls for all db models
+# parent class used to store all metadata for all db models
 Base = declarative_base()
 
 # for apis req dep
