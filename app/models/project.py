@@ -4,13 +4,14 @@ from sqlalchemy.sql import func
 import enum
 import uuid
 from sqlalchemy.orm import relationship
+# from app.models.auth import UserModel
 
 # junction table
 project_members=Table(
     'project_members',
     Base.metadata,
-    Column('project_id',String(36), ForeignKey("project.id")),
-    Column('user_id',String(36), ForeignKey("user.id"))
+    Column('project_id',String(36), ForeignKey('project.id')),
+    Column('user_id',String(36), ForeignKey('user.id'))
 )
 
 class ProjectStatus(str, enum.Enum):
@@ -27,8 +28,8 @@ class Project(Base):
     description=Column(Text, nullable=True)
     owned_by=Column(String(36), ForeignKey('user.id'), nullable=False) 
 
-    owner = relationship("User", foreign_keys=[owned_by], back_populates="owned_projects")
-    members = relationship("User", secondary=project_members, back_populates="projects") 
+    owner = relationship("UserModel", foreign_keys=[owned_by], back_populates="owned_projects")
+    members = relationship("UserModel", secondary=project_members, back_populates="projects") 
     tickets = relationship("Ticket", back_populates="project")
 
     created_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
