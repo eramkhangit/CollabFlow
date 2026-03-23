@@ -28,7 +28,7 @@ class Permissions(Base):
     id=Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     permission_name=Column(Enum(PermissionName), default=PermissionName.ADMIN_ACCESS, nullable=False)
     
-    users=relationship("User",secondary=user_permissions,back_populates='permissions')
+    users=relationship("UserModel",secondary=user_permissions,back_populates='permissions')
 
 #  first table user
 class UserRole(str, enum.Enum):
@@ -36,14 +36,14 @@ class UserRole(str, enum.Enum):
     ADMIN='admin'
     DEVELOPER='developer'
 
-class User(Base):
+class UserModel(Base):
     __tablename__='user'
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
 
     user_name=Column(String(255), unique=True)
     email=Column(String(250), unique=True, nullable=False, index=True)
-    password=Column(String(200), nullable=False)
+    password=Column(String(255), nullable=False)
     role=Column(Enum(UserRole), default=UserRole.USER, nullable=False)
     avatar_url=Column(String(500), nullable=True)
 
