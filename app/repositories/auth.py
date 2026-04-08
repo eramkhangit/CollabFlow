@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRole, RefreshToken
 from typing import Optional,List, Tuple,Union
 from sqlalchemy.exc import IntegrityError
 
@@ -33,7 +33,37 @@ class UserRepository:
             self.db.rollback()
             print((f"Error creating todo: {e}"))
             raise
-     
+
+    def refresh_token( 
+        self,
+        user_id: str,
+        jti: str,
+        device_info: dict,
+        expires_at
+    ) -> RefreshToken:
+        try:
+          token = RefreshToken(
+            jti=jti,
+            user_id=user_id,
+            device_name=device_info.get("device_name") if device_info else None,
+            ip_address=device_info.get("ip_address") if device_info else None,
+            user_agent=device_info.get("user_agent") if device_info else None,
+            expires_at=expires_at,
+            is_revoked=False
+            )
+          print("Befor store refresh")
+          self.db.add(token)
+          self.db.commit()
+          self.db.refresh(token)
+          print("Befor store refresh")
+
+          return token
+
+        except Exception:
+            self.db.rollback()
+            print("Error: Refresh token creation failed")
+            raise
+
     def change_pswd(self, user:UserModel, hashed_password:str) -> UserModel :
 
         try:

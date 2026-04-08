@@ -1,8 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from fastapi import status,Depends, HTTPException
-from app.schemas.auth import UserResponse, User
+from app.schemas.auth import UserResponse, User,LoginResponse,LoginRequest
 from app.services.auth import UserService
 
 router = APIRouter(prefix='/user', tags=['user'])
@@ -37,6 +37,32 @@ async def register(user_data:User, db:Session=Depends(get_db)) -> UserResponse :
             detail=f"An error occurred: {str(e)}"
         )
 
+@router.post("/login",
+    response_model=LoginResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Login a user",
+    description="Login a user"
+    )
+async def login(login_data:LoginRequest,request: Request ,db:Session=Depends(get_db)) -> LoginResponse :
+    try:
+        service = UserService(db)
+        user=service.login_user(login_data, request=request)
 
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+        
+        return user
+    
+    except HTTPException as e:
+        raise e
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred: {str(e)}"
+        )
 
        

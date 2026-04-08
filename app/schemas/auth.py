@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
-from typing import Optional, ClassVar, Any
+from typing import Optional, ClassVar, Any,Dict
 from datetime import datetime
 import enum
 
@@ -54,6 +54,7 @@ class User(UserBase):
         return v
 
 class UserResponse(BaseSchema): 
+    """registration response info of user"""
     id: str                        
     user_name: str
     email: EmailStr
@@ -83,6 +84,19 @@ class UserResponse(BaseSchema):
     }
 )
 
+class LoginResponse(BaseModel):
+    """Login response with user info"""
+    access_token: str
+    refresh_token: str = "bearer"
+    token_type: str
+    user: Dict[str, Any]
+
+class LoginRequest(BaseSchema):
+    """Login request with user info"""
+    email: EmailStr
+    user_name:str
+    password: str
+
 class PermissionName(str, enum.Enum):
     READ_USER = "read:user"
     WRITE_USER = "write:user"
@@ -92,6 +106,6 @@ class PermissionName(str, enum.Enum):
 
 class Permissions(BaseSchema):
     permission_name:PermissionName=PermissionName.READ_USER 
-    model_config = {
-        "from_attributes": True
-    }   
+    # model_config = {
+    #     "from_attributes": True
+    # }   
