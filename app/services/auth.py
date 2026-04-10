@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError # used for DB constraint violation err
 from datetime import datetime, timezone,timedelta
 import uuid
 from app.config.config import get_settings
+from jose import jwt, JWTError
 
 settings = get_settings()
 
@@ -102,7 +103,7 @@ class UserService:
        jti = str(uuid.uuid4())
        expires_at = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
-       refresh_token=create_refresh_token(user_id=str(existing_user.id))
+       refresh_token=create_refresh_token(user_id=str(existing_user.id), jti=jti)
 
        # save in db 
        self.repo.refresh_token(
@@ -123,6 +124,58 @@ class UserService:
             "refresh_token": refresh_token,
             "token_type": "bearer"
         }
+    
+    def logout_user(self, refresh_token: str):
+
+      try:
+        # decode token
+        payload = jwt.decode(
+            refresh_token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+
+        # check type
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid token type"
+            )
+
+        # get jti
+        jti = payload.get("jti")
+
+        if not jti:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid token"
+            )
+
+        #  find in DB
+        token = self.repo.get_by_jti(jti)
+
+        if not token:
+            raise HTTPException(
+                status_code=404,
+                detail="Token not found"
+            )
+
+        if token.is_revoked:
+            raise HTTPException(
+                status_code=400,
+                detail="Token already revoked"
+            )
+
+        # revoke
+        self.repo.revoke_token(token)
+
+        return {"message": "Logout successful"}
+
+      except JWTError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
 
     def get_user_by_id(self, user_id:str) -> UserModel :
         """return user with given specific id"""

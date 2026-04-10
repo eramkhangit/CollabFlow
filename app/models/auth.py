@@ -35,7 +35,7 @@ class Permissions(Base):
 class UserRole(str, enum.Enum):
     USER='user'
     ADMIN='admin'
-    DEVELOPER='developer'
+    DEVELOPER='developer' 
 
 class UserModel(Base):
     __tablename__='user'
@@ -62,7 +62,10 @@ class UserModel(Base):
     owned_projects=relationship("Project", back_populates="owner" )
 
     projects = relationship("Project", secondary=project_members, back_populates="members")
-
+    
+    owned_workspaces = relationship("Workspace", back_populates="owner")
+    workspace_memberships = relationship("WorkspaceMembers", back_populates="user")
+    
 
     created_at=Column(DateTime(timezone=True), server_default=func.now())
     updated_at=Column(DateTime(timezone=True), onupdate=func.now())

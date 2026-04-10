@@ -63,6 +63,20 @@ class UserRepository:
             self.db.rollback()
             print("Error: Refresh token creation failed")
             raise
+ 
+    def get_by_jti(self, jti:str ) -> RefreshToken | None:
+        """ Get jti from db """
+        return (
+        self.db.query(RefreshToken)
+        .filter(RefreshToken.jti == jti)
+        .first()) 
+
+    def revoke_token(self, token:RefreshToken) -> RefreshToken :
+        """ revoke token """
+        token.is_revoked = True
+        self.db.commit()
+        self.db.refresh(token)
+        return token
 
     def change_pswd(self, user:UserModel, hashed_password:str) -> UserModel :
 

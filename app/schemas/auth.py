@@ -19,18 +19,9 @@ class UserBase(BaseSchema):
     avatar_url:Optional[str] = Field(default=None, description="Add user avatar url")
 
 class User(UserBase):
-    # user_name:str = Field(..., min_length=5, description="Enter user name")
-    # email:EmailStr 
-    # password:str = Field(..., min_length=8, max_length=50 , description="Enter password")
-    # role:UserRole= UserRole.USER
-    # avatar_url:Optional[str] = Field( description="Add user avatar url")
     is_active:bool = Field( default=True, description="User active status")
     is_verified:bool = Field(default=False, )
-
-    # created_at:datetime = Field(None, description="Auto-generated creation time")
-    # updated_at:Optional[datetime] = Field(None, description="Auto-generated update time")
-    # last_login:Optional[datetime] = Field(None, description="Last login timestamp")
-
+    
     model_config = {
         "from_attributes": True
     }

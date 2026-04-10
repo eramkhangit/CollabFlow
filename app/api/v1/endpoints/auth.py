@@ -65,4 +65,20 @@ async def login(login_data:LoginRequest,request: Request ,db:Session=Depends(get
             detail=f"An error occurred: {str(e)}"
         )
 
-       
+@router.post("/logout")
+async def logout(
+    refresh_token: str,
+    db: Session = Depends(get_db)
+):
+    try:
+        service = UserService(db)
+        return service.logout_user(refresh_token)
+
+    except HTTPException as e:
+        raise e
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )      

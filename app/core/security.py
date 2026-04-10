@@ -2,7 +2,7 @@ from passlib.context import CryptContext
 from app.config.config import get_settings
 from datetime import datetime, timedelta, timezone
 import uuid
-from jose import jwt, JWTError
+from jose import jwt
 
 settings = get_settings()
 
@@ -60,7 +60,7 @@ def create_access_token(user_id:str, role:str) -> str:
 
     return encoded_jwt
 
-def create_refresh_token(user_id: str) -> str:
+def create_refresh_token(user_id: str,jti: str) -> str:
     """refresh token generate a new access token"""
 
     now = datetime.now(timezone.utc)
@@ -68,7 +68,7 @@ def create_refresh_token(user_id: str) -> str:
     payload = {
         "sub": user_id,
         "type": "refresh",         
-        "jti": str(uuid.uuid4()), 
+        "jti": jti, 
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_DAYS)).timestamp())
     }
