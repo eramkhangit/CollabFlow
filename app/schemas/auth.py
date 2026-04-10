@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
-from typing import Optional, ClassVar, Any
+from typing import Optional, ClassVar, Any,Dict
 from datetime import datetime
 import enum
 
@@ -19,18 +19,9 @@ class UserBase(BaseSchema):
     avatar_url:Optional[str] = Field(default=None, description="Add user avatar url")
 
 class User(UserBase):
-    # user_name:str = Field(..., min_length=5, description="Enter user name")
-    # email:EmailStr 
-    # password:str = Field(..., min_length=8, max_length=50 , description="Enter password")
-    # role:UserRole= UserRole.USER
-    # avatar_url:Optional[str] = Field( description="Add user avatar url")
     is_active:bool = Field( default=True, description="User active status")
     is_verified:bool = Field(default=False, )
-
-    # created_at:datetime = Field(None, description="Auto-generated creation time")
-    # updated_at:Optional[datetime] = Field(None, description="Auto-generated update time")
-    # last_login:Optional[datetime] = Field(None, description="Last login timestamp")
-
+    
     model_config = {
         "from_attributes": True
     }
@@ -54,6 +45,7 @@ class User(UserBase):
         return v
 
 class UserResponse(BaseSchema): 
+    """registration response info of user"""
     id: str                        
     user_name: str
     email: EmailStr
@@ -83,6 +75,19 @@ class UserResponse(BaseSchema):
     }
 )
 
+class LoginResponse(BaseModel):
+    """Login response with user info"""
+    access_token: str
+    refresh_token: str = "bearer"
+    token_type: str
+    user: Dict[str, Any]
+
+class LoginRequest(BaseSchema):
+    """Login request with user info"""
+    email: EmailStr
+    user_name:str
+    password: str
+
 class PermissionName(str, enum.Enum):
     READ_USER = "read:user"
     WRITE_USER = "write:user"
@@ -92,6 +97,6 @@ class PermissionName(str, enum.Enum):
 
 class Permissions(BaseSchema):
     permission_name:PermissionName=PermissionName.READ_USER 
-    model_config = {
-        "from_attributes": True
-    }   
+    # model_config = {
+    #     "from_attributes": True
+    # }   

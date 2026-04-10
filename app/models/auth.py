@@ -5,6 +5,7 @@ import enum
 import uuid
 from sqlalchemy.orm import relationship
 from app.models.project import project_members
+from datetime import datetime, timezone
 
 # Junction Table (Association Table)
 user_permissions=Table(
@@ -34,7 +35,7 @@ class Permissions(Base):
 class UserRole(str, enum.Enum):
     USER='user'
     ADMIN='admin'
-    DEVELOPER='developer'
+    DEVELOPER='developer' 
 
 class UserModel(Base):
     __tablename__='user'
@@ -61,7 +62,10 @@ class UserModel(Base):
     owned_projects=relationship("Project", back_populates="owner" )
 
     projects = relationship("Project", secondary=project_members, back_populates="members")
-
+    
+    owned_workspaces = relationship("Workspace", back_populates="owner")
+    workspace_memberships = relationship("WorkspaceMembers", back_populates="user")
+    
 
     created_at=Column(DateTime(timezone=True), server_default=func.now())
     updated_at=Column(DateTime(timezone=True), onupdate=func.now())
@@ -78,3 +82,20 @@ class UserModel(Base):
         if self.role == UserRole.ADMIN:
             return True  # Admin has all permissions
         return any(p.permission_name == permission for p in self.permissions)
+    
+class RefreshToken(Base):
+    __tablename__='refresh_token'
+
+    id=Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    jti = Column(String(255), unique=True, nullable=False, index=True)  # from token payload
+    user_id= Column(String(36), ForeignKey("user.id"), nullable=False)
+    
+    # device info
+    device_name = Column(String(255), nullable=True)
+    ip_address = Column(String(50), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    
+    # lifecycle
+    created_at  = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
+    expires_at  = Column(DateTime(timezone=True), nullable=False)
+    is_revoked  = Column(Boolean, default=False)    

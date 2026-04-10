@@ -6,7 +6,7 @@ import os
 import sys
 from app.config.config import get_settings
 from app.core.database import Base
-from app.models import auth, project, ticket, team
+from app.models import auth, project, ticket, workspace
 
 
 settings = get_settings()

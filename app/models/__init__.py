@@ -1,8 +1,7 @@
-# app/models/__init__.py
-# Yahan sab models ek saath import karo
+# Import all models here
 
-from app.models.auth import UserModel, Permissions
+from app.models.auth import UserModel, Permissions, RefreshToken
 from app.models.project import Project
 from app.models.ticket import Ticket
 
-__all__ = ['UserModel', 'Project', 'Ticket', 'Permissions']
+__all__ = ['UserModel', 'Project', 'Ticket', 'Permissions','RefreshToken']
