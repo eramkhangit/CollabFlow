@@ -21,7 +21,7 @@ class Workspace(Base):
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
-    owner = relationship("User", back_populates="owned_workspaces")
+    owner = relationship("UserModel", back_populates="owned_workspaces")
     members = relationship("WorkspaceMembers", back_populates="workspace", cascade="all, delete-orphan")
 
     created_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -42,7 +42,7 @@ class WorkspaceMembers(Base):
     is_active=Column(Boolean, default=True, nullable=False)
     role = Column(Enum(WorkspaceRole), default=WorkspaceRole.MEMBER)
 
-    user = relationship("User", back_populates="workspace_memberships")
+    user = relationship("UserModel", back_populates="workspace_memberships")
     workspace = relationship("Workspace", back_populates="members")
 
     joined_at=Column(DateTime(timezone=True), server_default=func.now())

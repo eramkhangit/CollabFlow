@@ -51,24 +51,26 @@ class UserModel(Base):
     is_active=Column(Boolean, default=True, nullable=False)
     is_verified=Column(Boolean, default=False, nullable=False)
 
-    permissions=relationship('Permissions', secondary=user_permissions ,back_populates='users') # secondary : user for M2M
+    permissions=relationship('Permissions', secondary=user_permissions ,back_populates='users', lazy="joined") # secondary : user for M2M
 
-    assigned_tickets = relationship("Ticket", foreign_keys="Ticket.assigned_to", back_populates="assigned_user")
+    assigned_tickets = relationship("Ticket", foreign_keys="Ticket.assigned_to", back_populates="assigned_user",lazy="selectin")
 
-    created_tickets  = relationship("Ticket",foreign_keys="Ticket.created_by",back_populates="created_by_user")
+    created_tickets  = relationship("Ticket",foreign_keys="Ticket.created_by",back_populates="created_by_user", lazy="selectin")
 
-    updated_tickets  = relationship("Ticket",foreign_keys="Ticket.updated_by",back_populates="updated_by_user")
+    updated_tickets  = relationship("Ticket",foreign_keys="Ticket.updated_by",back_populates="updated_by_user", lazy="selectin")
 
     owned_projects=relationship("Project", back_populates="owner" )
 
-    projects = relationship("Project", secondary=project_members, back_populates="members")
+    projects = relationship("Project", secondary=project_members, back_populates="members", lazy="selectin")
     
-    owned_workspaces = relationship("Workspace", back_populates="owner")
-    workspace_memberships = relationship("WorkspaceMembers", back_populates="user")
+    owned_workspaces = relationship("Workspace", back_populates="owner", lazy="selectin")
+    workspace_memberships = relationship("WorkspaceMembers", back_populates="user", lazy="selectin")
     
 
-    created_at=Column(DateTime(timezone=True), server_default=func.now())
-    updated_at=Column(DateTime(timezone=True), onupdate=func.now())
+    created_at=Column(DateTime(timezone=True), 
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc) )
+    updated_at=Column(DateTime(timezone=True), onupdate=func.now(),default=lambda: datetime.now(timezone.utc))
     last_login=Column(DateTime(timezone=True), nullable=True)
 
     def has_role(self, role:UserRole):
@@ -96,6 +98,6 @@ class RefreshToken(Base):
     user_agent = Column(String(500), nullable=True)
     
     # lifecycle
-    created_at  = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
     expires_at  = Column(DateTime(timezone=True), nullable=False)
     is_revoked  = Column(Boolean, default=False)    

@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status,Request
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.auth import UserModel,UserRole
-from app.schemas.auth import User, LoginRequest
+from app.schemas.auth import User, LoginRequest,UserResponse
 from app.repositories.auth import UserRepository
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
 from typing import Optional
@@ -17,13 +17,13 @@ class UserService:
 
     """service layer for user"""
 
-    def __init__(self, db:Session):
+    def __init__(self, db:AsyncSession):
         self.db = db
         self.repo = UserRepository(db)  # Repository instance
 
-    def create_user(self, user_data:User) -> UserModel :
+    async def create_user(self, user_data:User) -> UserResponse :
        
-       existing_user=self.repo.get_by_username_or_email(
+       existing_user= await self.repo.get_by_username_or_email(
            email=user_data.email , 
            username=user_data.user_name
            )
@@ -54,17 +54,17 @@ class UserService:
         )
        
        try:
-           return self.repo.create_user(db_user)
+           return await self.repo.create_user(db_user)
        except IntegrityError :
             raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Account could not be created due to a conflict. Please try again."
     )
     
-    def login_user(self, login_data:LoginRequest, request: Request) -> UserModel :
+    async def login_user(self, login_data:LoginRequest, request: Request) -> dict :
       
     #  check existing user
-       existing_user=self.repo.get_by_username_or_email(
+       existing_user= await self.repo.get_by_username_or_email(
            email=login_data.email , 
            username=login_data.user_name
            )
@@ -106,7 +106,7 @@ class UserService:
        refresh_token=create_refresh_token(user_id=str(existing_user.id), jti=jti)
 
        # save in db 
-       self.repo.refresh_token(
+       await self.repo.refresh_token(
            user_id=str(existing_user.id),
            jti=jti,
            device_info=device_info,
@@ -125,7 +125,7 @@ class UserService:
             "token_type": "bearer"
         }
     
-    def logout_user(self, refresh_token: str):
+    async def logout_user(self, refresh_token: str):
 
       try:
         # decode token
@@ -152,7 +152,7 @@ class UserService:
             )
 
         #  find in DB
-        token = self.repo.get_by_jti(jti)
+        token = await self.repo.get_by_jti(jti)
 
         if not token:
             raise HTTPException(
@@ -167,7 +167,7 @@ class UserService:
             )
 
         # revoke
-        self.repo.revoke_token(token)
+        await self.repo.revoke_token(token)
 
         return {"message": "Logout successful"}
 
@@ -177,9 +177,9 @@ class UserService:
             detail="Invalid or expired token"
         )
 
-    def get_user_by_id(self, user_id:str) -> UserModel :
+    async def get_user_by_id(self, user_id:str) -> UserModel :
         """return user with given specific id"""
-        user = self.repo.get_user_by_id(
+        user = await self.repo.get_user_by_id(
             # self ,
             user_id)
         if not user :
@@ -189,19 +189,19 @@ class UserService:
             )
         return user
     
-    def update_user(self, user_id: str, updates: dict) -> UserModel:
+    async def update_user(self, user_id: str, updates: dict) -> UserModel:
         "update specific user and specific field"
-        user = self.get_user_by_id(user_id)
-        return self.repo.update_user(
+        user = await self.get_user_by_id(user_id)
+        return await self.repo.update_user(
         # self,
         user,updates)
 
-    def delete_user(self, user_id:str) -> None :
+    async def delete_user(self, user_id:str) -> None :
         """delete specific user"""
-        user = self.get_user_by_id(user_id)
-        self.repo.delete_user(user) 
+        user = await self.get_user_by_id(user_id)
+        await self.repo.delete_user(user) 
     
-    def get_all_user(
+    async def get_all_user(
         self,
         skip:int = 0,
         limit:int = 100,
@@ -211,7 +211,7 @@ class UserService:
         ) -> dict:
 
         """ return paginated list of users and count """
-        users = self.repo.get_all_user_data(
+        users = await self.repo.get_all_user_data(
             # self, 
             skip=skip,
             limit=limit,
@@ -220,7 +220,7 @@ class UserService:
             is_verified=is_verified
         )
 
-        total = self.repo.count_users(
+        total = await self.repo.count_users(
             # self, 
             skip=skip,
             limit=limit,

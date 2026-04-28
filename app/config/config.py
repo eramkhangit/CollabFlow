@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     @property
     def DB_URL(self) -> str:
         encoded_pswd = quote_plus(self.DB_PASSWORD)
-        url=f"mysql+pymysql://{self.DB_USER}:{encoded_pswd}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        url=f"mysql+aiomysql://{self.DB_USER}:{encoded_pswd}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
         return url 
     

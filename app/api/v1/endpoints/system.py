@@ -1,11 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from fastapi import Response
-from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.core.database import get_db
 from typing import Any
-from datetime import datetime
+from datetime import datetime,timezone
+from sqlalchemy.ext.asyncio import AsyncSession
 
 class HealthCeckResponse(BaseModel):
   db:str
@@ -13,11 +13,11 @@ class HealthCeckResponse(BaseModel):
 router = APIRouter(tags=['user'])
 
 @router.get("/health", response_model=dict[str, Any])
-async def get_system_health(response: Response) -> dict[str, Any]:
+async def get_system_health(response: Response, db: AsyncSession = Depends(get_db) ) -> dict[str, Any]:
     """system health — API, database"""
 
     health_data: dict[str, Any] = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "status": "healthy",
         "success": True,
         "message": "Health check completed",
@@ -29,8 +29,11 @@ async def get_system_health(response: Response) -> dict[str, Any]:
 
     # Database
     try:
-         db = next(get_db())  # if db fun is in sync way
-         db.execute(text("SELECT 1"))
+        #  db = next(get_db())
+        #  db.execute(text("SELECT 1"))
+
+         # Execute async query
+         await db.execute(text("SELECT 1"))
 
          health_data["components"]["database"] = { "status": "healthy"}
 
@@ -38,6 +41,7 @@ async def get_system_health(response: Response) -> dict[str, Any]:
         health_data["components"]["database"] = {
             "status": "unhealthy",
             "error": "Database connection failed",
+            "detail": str(e) 
         }
 
     # Determine overall status from components

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
-from typing import Optional, ClassVar, Any,Dict
+from typing import Optional, Any,Dict
 from datetime import datetime
 import enum
 
@@ -73,7 +73,7 @@ class UserResponse(BaseSchema):
                 "last_login": None
         }
     }
-)
+)    
 
 class LoginResponse(BaseModel):
     """Login response with user info"""

@@ -11,13 +11,13 @@ class WorkspaceRole(str, enum.Enum):
     MEMBER = "member"
     GUEST = "guest"
 
-class Workspace(BaseSchema):
+class WorkspaceSchema(BaseSchema):
     owner_id:str=Field(..., description="Owner id")
     name:str=Field(..., description="Workspace name")
     description:Optional[str]=Field(default=None ,description="Description about workspace")
     is_active:bool=Field(...,default=True, description="Workspace active or not")
 
-class WorkspaceMembers(BaseSchema):
+class WorkspaceMembersSchema(BaseSchema):
     user_id:str=Field(..., description="User id")
     workspace_id:str=Field(..., description="workspace id")
     is_active:bool=Field(...,default=True, description="Workspace member active status")

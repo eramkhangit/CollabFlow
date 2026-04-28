@@ -1,17 +1,19 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.auth import UserModel, UserRole, RefreshToken
+from app.schemas.auth import User, UserResponse
 from typing import Optional,List, Tuple,Union
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy import select, func
 
-updatable_fields = {"username", "avatar_url"}
+updatable_fields = {"user_name", "avatar_url"}
 
 class UserRepository:
     """Repository for user CRUD db operations"""
 
-    def __init__(self, db:Session):
+    def __init__(self, db:AsyncSession):
         self.db = db
  
-    def create_user(self, user:Union[dict, UserModel]) -> UserModel :
+    async def create_user(self, user:Union[dict, User]) -> UserResponse :
         """register a new user """
         try:
             if isinstance(user, UserModel):
@@ -21,26 +23,43 @@ class UserRepository:
               user_data = UserModel(**user)
         
             self.db.add(user_data)
-            self.db.commit()
-            print((f"Registered a user with id: {user_data.id}"))
-            self.db.refresh(user_data)
-            return user_data 
+
+            await self.db.flush() 
+
+            # store data
+            user_response = UserResponse(
+            id=user_data.id,
+            email=user_data.email,
+            user_name=user_data.user_name,
+            role=user_data.role,
+            avatar_url=user_data.avatar_url,
+            is_active=user_data.is_active,
+            is_verified=user_data.is_verified,
+            created_at=user_data.created_at,
+            updated_at=user_data.updated_at
+            )
+    
+            await self.db.commit()
+
+            return  user_response
+        
         except IntegrityError:
-            self.db.rollback()
+            await self.db.rollback()
             print('Error : Integrity ')
             raise           
         except Exception as e:
-            self.db.rollback()
-            print((f"Error creating todo: {e}"))
+            await self.db.rollback()
+            print((f"Error creating user: {e}"))
             raise
 
-    def refresh_token( 
+    async def refresh_token( 
         self,
         user_id: str,
         jti: str,
         device_info: dict,
         expires_at
-    ) -> RefreshToken:
+    ) -> dict:
+        """Create and store refresh token, return token data instead of ORM object"""
         try:
           token = RefreshToken(
             jti=jti,
@@ -51,174 +70,245 @@ class UserRepository:
             expires_at=expires_at,
             is_revoked=False
             )
-          print("Befor store refresh")
+  
           self.db.add(token)
-          self.db.commit()
-          self.db.refresh(token)
-          print("Befor store refresh")
-
-          return token
+          await self.db.commit()
+          # Don't return ORM object - only return essential data to avoid lazy loading
+          print("Token created successfully")
+          return {
+              "id": token.id,
+              "user_id": token.user_id,
+              "jti": token.jti,
+              "expires_at": token.expires_at
+          }
 
         except Exception:
-            self.db.rollback()
+            await self.db.rollback()
             print("Error: Refresh token creation failed")
             raise
  
-    def get_by_jti(self, jti:str ) -> RefreshToken | None:
+    async def get_by_jti(self, jti:str ) -> RefreshToken | None:
         """ Get jti from db """
-        return (
-        self.db.query(RefreshToken)
-        .filter(RefreshToken.jti == jti)
-        .first()) 
 
-    def revoke_token(self, token:RefreshToken) -> RefreshToken :
+        result = await self.db.execute(
+            select(RefreshToken).where(RefreshToken.jti == jti)
+        )
+        return result.scalar_one_or_none()
+
+    async def revoke_token(self, token:RefreshToken) -> RefreshToken :
         """ revoke token """
         token.is_revoked = True
-        self.db.commit()
-        self.db.refresh(token)
+        await self.db.commit()
+        await self.db.refresh(token)
         return token
 
-    def change_pswd(self, user:UserModel, hashed_password:str) -> UserModel :
+    async def change_pswd(self, user:UserModel, hashed_password:str) -> UserModel :
 
+        if not user:
+            raise ValueError("User doesn't exist")
+        
         try:
             user.hashed_password = hashed_password 
-            self.db.commit()
-            self.db.refresh(user)
+            await self.db.commit()
+            # await self.db.refresh(user)
             return user
         except Exception:
-            self.db.rollback()
+            await self.db.rollback()
             print("Error: password updation failed")
             raise       
 
-    def get_all_user_data(
+    async def get_all_user_data(
         self,
-        skip:int = 0,
-        limit:int = 100,
-        role : Optional[UserRole] = None,
-        ) -> Tuple[List[UserModel], int] :
+        skip: int = 0,
+        limit: int = 100,
+        role: Optional[UserRole] = None,
+    ) -> Tuple[List[UserModel], int]:
+        query = select(UserModel)
+        
+        if role is not None:
+            query = query.where(UserModel.role == role)
+        
+        query = query.order_by(UserModel.created_at.desc()).offset(skip).limit(limit)
+        
+        result = await self.db.execute(query)
+        users = result.scalars().all()
+        
+        # Count total
+        count_query = select(func.count()).select_from(UserModel)
+        if role is not None:
+            count_query = count_query.where(UserModel.role == role)
+        
+        total_result = await self.db.execute(count_query)
+        total = total_result.scalar()
+        
+        return users, total
 
-        """Get all users from db with filters """ 
+    async def get_user_by_id(self, user_id: str) -> UserModel | None:
+        result = await self.db.execute(
+            select(UserModel).where(UserModel.id == user_id)
+        )
+        return result.scalar_one_or_none()
 
-        query = self.db.query(UserModel)  
-
-        if role is not None :
-            query = query.filter(UserModel.role == role)    
-
-        return (
-            query
-            .order_by(UserModel.created_at.desc())
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )      
-
-    def update_user(self, user:UserModel, updates:dict) -> UserModel:
-           try : 
-                for field, value in updates.items():
-                     if field in updatable_fields:
-                         setattr(user,field , value)
-
-                self.db.commit()  
-                self.db.refresh(user)
-                return user          
-           except IntegrityError:
-                # updating username to one that already exists
-                self.db.rollback()
-                raise
-
-           except Exception:
-               # Catch-all for unexpected DB errors
-               self.db.rollback()
-               raise  
-
-    def update_role(self, user:UserModel, role:UserRole) -> UserModel :
-
+    async def update_user(self, user: UserModel, updates: dict) -> UserModel:
         try:
-            user.role = role
-            self.db.commit()
-            self.db.refresh(user)
+            for field, value in updates.items():
+                if field in updatable_fields:
+                    setattr(user, field, value)
+            
+            await self.db.commit()
+            await self.db.refresh(user)
             return user
-        except:
-            self.db.rollback()
-            print("Error : Role updation failed")
-            raise   
+        except IntegrityError:
+            await self.db.rollback()
+            raise
+        except Exception:
+            await self.db.rollback()
+            raise
+
+    async def update_role(self, user: UserModel, role: UserRole) -> UserModel:
+       """Update user role"""
     
-    def update_avatar(self, user:UserModel, avatar:str) -> UserModel :
+       # Validate input
+       if not user:
+           raise ValueError("User cannot be None")
+    
+       try:
+           # Update role
+           user.role = role
+        
+           #  Commit changes (await with async)
+           await self.db.commit()
+        
+           # Refresh to get latest state
+           await self.db.refresh(user)
+        
+           return user
+        
+       except IntegrityError as e:
+           # Specific database error
+           await self.db.rollback()
+           print(f"Integrity error while updating role: {e}")
+           raise
+        
+       except Exception as e:
+           # Catch other errors
+           await self.db.rollback()
+           print(f"Error updating role for user {user.id}: {e}")
+           raise
+
+    
+    async def update_avatar(self, user:UserModel, avatar:str) -> UserModel : 
 
         try:
             user.avatar_url = avatar
-            self.db.commit()
-            self.db.refresh(user)
+            await self.db.commit()
+            await self.db.refresh(user)
             return user
-        except :
-            self.db.rollback()
+        except Exception:
+            await self.db.rollback()
             print("Error : Avatar url updation failed")
             raise      
 
     # soft delete
-    def set_activate(self, user:UserModel, is_active:bool) -> UserModel :
+    async def set_activate(self, user:UserModel, is_active:bool) -> UserModel :
 
         try:
             user.is_active = is_active
-            self.db.commit()
-            self.db.refresh(user)
+            await self.db.commit()
+            await self.db.refresh(user)
             return user
-        except:
-            self.db.rollback()
+        except Exception:
+            await self.db.rollback()
             print("Error : user activation failed")
             raise      
 
     # hard delete — permanently removes the row from the DB
-    def delete_user(self, user:UserModel) -> None:
+    async def delete_user(self, user:UserModel) -> None:
         try:
             self.db.delete(user)
-            self.db.commit()
+            await self.db.commit()
 
-        except:
-            self.db.rollback()
+        except Exception:
+            await self.db.rollback()
             print("Error : user deletion failed")
             raise     
   
-    # user to check duplicate username or email
-    def get_by_username_or_email(self, username:str, email:str) -> UserModel | None :
-        try:
-            return(
-            self.db.query(UserModel)
-            .filter(
-                (UserModel.email == email) | (UserModel.user_name == username)
-            )
-            .first()
-        )
-        except : 
-            print(f'Error : Error fetching user by username/email - username: {username}, email: {email}')
-            raise
- 
-    # count users in db
-    def count_users(self, 
-        role:Optional[UserRole]=None,
-        is_active:Optional[bool]=None,
-        is_verified:Optional[bool]=None
-        ) -> int :
-        query = self.db.query(UserModel)
+    # # user to check duplicate username or email
+    # def get_by_username_or_email(self, username:str, email:str) -> UserModel | None :
+    #     try:
+    #         return(
+    #         self.db.query(UserModel)
+    #         .filter(
+    #             (UserModel.email == email) | (UserModel.user_name == username)
+    #         )
+    #         .first()
+    #     )
+    #     except : 
+    #         print(f'Error : Error fetching user by username/email - username: {username}, email: {email}')
+    #         raise
 
-        if role is not None:
-            query = query.filter(UserModel.role == role)
-
-        if is_active is not None:
-            query = query.filter(UserModel.is_active == is_active)
-
-        if is_verified is not None:
-            query = query.filter(UserModel.is_verified == is_verified)
-
-        return query.count()
+    async def get_by_username_or_email(self, username: str, email: str) -> UserModel | None:
+      """Check duplicate username or email"""
     
-    # get specific user
-    def get_user_by_id(
-            self,
-            user_id:str
-        ) -> UserModel | None :
-        return(
-            self.db.query(UserModel)
-            .filter(UserModel.id == user_id)
-            .first()
+      # Validate input
+      if not username and not email:
+        raise ValueError("Either username or email is required")
+    
+      try:
+        # Build query
+        query = select(UserModel).where(
+            (UserModel.email == email) | (UserModel.user_name == username)
         )
+        
+        #  Execute async query
+        result = await self.db.execute(query)
+        
+        # Get first result 
+        user = result.scalars().first()
+        return user
+        
+      except SQLAlchemyError as e:
+        # Database error - rollback not needed for SELECT
+        print(f"Database error fetching user by username/email: {e}")
+        raise
+        
+      except Exception as e:
+        #  Unexpected error
+        print(f"Unexpected error fetching user: {e}")
+        raise
+    
+    async def count_users(self, 
+    role: Optional[UserRole] = None,
+    is_active: Optional[bool] = None,
+    is_verified: Optional[bool] = None
+    ) -> int:
+      """Count users with optional filters"""
+    
+      try:
+        #  Build count query
+        query = select(func.count()).select_from(UserModel)
+        
+        #  Add filters if provided
+        if role is not None:
+            query = query.where(UserModel.role == role)
+        
+        if is_active is not None:
+            query = query.where(UserModel.is_active == is_active)
+        
+        if is_verified is not None:
+            query = query.where(UserModel.is_verified == is_verified)
+        
+        # Execute async query
+        result = await self.db.execute(query)
+        
+        #  Get count value
+        count = result.scalar()
+        
+        return count if count is not None else 0
+        
+      except SQLAlchemyError as e:
+        print(f"Database error while counting users: {e}")
+        raise
+      except Exception as e:
+        print(f"Unexpected error while counting users: {e}")
+        raise
