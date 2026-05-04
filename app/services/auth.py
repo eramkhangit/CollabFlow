@@ -10,6 +10,7 @@ from datetime import datetime, timezone,timedelta
 import uuid
 from app.config.config import get_settings
 from jose import jwt, JWTError
+from sqlalchemy import select
 
 settings = get_settings()
 
@@ -177,19 +178,42 @@ class UserService:
             detail="Invalid or expired token"
         )
 
-    async def get_user_by_id(self, user_id:str) -> UserModel :
-        """return user with given specific id"""
-        user = await self.repo.get_user_by_id(
-            # self ,
-            user_id)
-        if not user :
-           raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-            )
-        return user
+    # async def get_user_by_id(self, user_id:str) -> UserResponse :
+    #     """return user with given specific id"""
+    #     user = await self.repo.get_user_by_id(
+    #         # self ,
+    #         user_id)
+    #     if not user :
+    #        raise HTTPException(
+    #         status_code=status.HTTP_404_NOT_FOUND,
+    #         detail="User not found"
+    #         )
+    #     return user
+    async def get_user_by_id(self, user_id: str):
+           """Basic user fetch - no relationships"""
     
-    async def update_user(self, user_id: str, updates: dict) -> UserModel:
+           query = select(UserModel).where(UserModel.id == user_id)
+           result = await self.db.execute(query)
+        #    print(f'Data : ${result.unique().scalar_one_or_none() }')
+           return result.unique().scalar_one_or_none()
+
+
+    async def get_user_by_id_with_details(self, user_id: str):
+        """User fetch with all relationships"""
+    
+        from sqlalchemy.orm import selectinload
+    
+        query = select(UserModel)\
+        .where(UserModel.id == user_id)\
+        .options(
+            selectinload(UserModel.workspaces),
+            selectinload(UserModel.workspace_members)
+        )
+    
+        result = await self.db.execute(query)
+        return result.unique().scalar_one_or_none()
+    
+    async def update_user(self, user_id: str, updates: dict) -> UserResponse:
         "update specific user and specific field"
         user = await self.get_user_by_id(user_id)
         return await self.repo.update_user(

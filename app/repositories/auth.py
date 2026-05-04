@@ -232,20 +232,6 @@ class UserRepository:
             await self.db.rollback()
             print("Error : user deletion failed")
             raise     
-  
-    # # user to check duplicate username or email
-    # def get_by_username_or_email(self, username:str, email:str) -> UserModel | None :
-    #     try:
-    #         return(
-    #         self.db.query(UserModel)
-    #         .filter(
-    #             (UserModel.email == email) | (UserModel.user_name == username)
-    #         )
-    #         .first()
-    #     )
-    #     except : 
-    #         print(f'Error : Error fetching user by username/email - username: {username}, email: {email}')
-    #         raise
 
     async def get_by_username_or_email(self, username: str, email: str) -> UserModel | None:
       """Check duplicate username or email"""

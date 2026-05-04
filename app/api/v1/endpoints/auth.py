@@ -33,6 +33,7 @@ async def register(user_data:User, db:AsyncSession=Depends(get_db))->UserRespons
     
     except HTTPException as e:
         raise e
+    
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
