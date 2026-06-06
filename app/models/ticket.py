@@ -47,15 +47,17 @@ class Ticket(Base):
 
     # belongs
     project_id=Column(String(36),ForeignKey('project.id'), nullable=False, index=True)
-    # team_id=Column(String(36),ForeignKey("team.id") ,nullable=True, index=True)
-    
+
     # relations
-    assigned=relationship("User", foreign_keys=[assigned_to] ,back_populates='assigned_tickets')
-    created_by_user = relationship("User", foreign_keys=[created_by],   back_populates="created_tickets") 
-    updated_by_user = relationship("User", foreign_keys=[updated_by],back_populates="updated_tickets")
+
+    # connect to project model
+    project = relationship("Project", back_populates="tickets") 
+    assigned_user=relationship("UserModel", foreign_keys=[assigned_to] ,back_populates='assigned_tickets')
+    created_by_user = relationship("UserModel", foreign_keys=[created_by],   back_populates="created_tickets") 
+    updated_by_user = relationship("UserModel", foreign_keys=[updated_by],back_populates="updated_tickets")
 
     # self-referential
-    parent   = relationship("Ticket", remote_side=[id], back_populates="sub_tasks")
+    # parent   = relationship("Ticket", remote_side=[id], back_populates="sub_tasks")
     # sub_tasks = relationship("Ticket", back_populates="parent")
 
     # Audit fields (timestamps)
