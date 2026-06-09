@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api.v1.endpoints import auth , system
+from app.api.v1.endpoints import auth , system, workspace
 
 
 app = FastAPI(
@@ -13,4 +13,5 @@ app = FastAPI(
 
 
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(workspace.router, prefix="/api/v1")
 app.include_router(system.router)

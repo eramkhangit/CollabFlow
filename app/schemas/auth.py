@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
-from typing import Optional, ClassVar, Any,Dict
+from typing import Optional, Any,Dict
 from datetime import datetime
 import enum
 
@@ -22,9 +22,9 @@ class User(UserBase):
     is_active:bool = Field( default=True, description="User active status")
     is_verified:bool = Field(default=False, )
     
-    model_config = {
-        "from_attributes": True
-    }
+    # model_config = {
+    #     "from_attributes": True
+    # }
 
     @field_validator('password')
     def validate_password(cls, v):
@@ -73,7 +73,7 @@ class UserResponse(BaseSchema):
                 "last_login": None
         }
     }
-)
+)    
 
 class LoginResponse(BaseModel):
     """Login response with user info"""
