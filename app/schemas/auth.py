@@ -22,9 +22,9 @@ class User(UserBase):
     is_active:bool = Field( default=True, description="User active status")
     is_verified:bool = Field(default=False, )
     
-    model_config = {
-        "from_attributes": True
-    }
+    # model_config = {
+    #     "from_attributes": True
+    # }
 
     @field_validator('password')
     def validate_password(cls, v):

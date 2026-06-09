@@ -53,18 +53,18 @@ class UserModel(Base):
 
     permissions=relationship('Permissions', secondary=user_permissions ,back_populates='users', lazy="joined") # secondary : user for M2M
 
-    assigned_tickets = relationship("Ticket", foreign_keys="Ticket.assigned_to", back_populates="assigned_user",lazy="selectin")
+    assigned_tickets = relationship("Ticket", foreign_keys="Ticket.assigned_to", back_populates="assigned_user",lazy="select")
 
-    created_tickets  = relationship("Ticket",foreign_keys="Ticket.created_by",back_populates="created_by_user", lazy="selectin")
+    created_tickets  = relationship("Ticket",foreign_keys="Ticket.created_by",back_populates="created_by_user", lazy="select")
 
-    updated_tickets  = relationship("Ticket",foreign_keys="Ticket.updated_by",back_populates="updated_by_user", lazy="selectin")
+    updated_tickets  = relationship("Ticket",foreign_keys="Ticket.updated_by",back_populates="updated_by_user", lazy="select")
 
     owned_projects=relationship("Project", back_populates="owner" )
 
-    projects = relationship("Project", secondary=project_members, back_populates="members", lazy="selectin")
+    projects = relationship("Project", secondary=project_members, back_populates="members", lazy="select")
     
-    owned_workspaces = relationship("Workspace", back_populates="owner", lazy="selectin")
-    workspace_memberships = relationship("WorkspaceMembers", back_populates="user", lazy="selectin")
+    owned_workspaces = relationship("Workspace", back_populates="owner", lazy="select")
+    workspace_memberships = relationship("WorkspaceMembers", back_populates="user", lazy="select")
     
 
     created_at=Column(DateTime(timezone=True), 

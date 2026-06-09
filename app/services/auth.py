@@ -194,7 +194,6 @@ class UserService:
     
            query = select(UserModel).where(UserModel.id == user_id)
            result = await self.db.execute(query)
-        #    print(f'Data : ${result.unique().scalar_one_or_none() }')
            return result.unique().scalar_one_or_none()
 
 
@@ -252,4 +251,4 @@ class UserService:
             is_active=is_active,
             is_verified=is_verified
         )
-        return {"total":total, "skip":skip, "limit":limit,"users":users}
+        return {"total":total, "skip":skip, "limit":limit,"users":users} 

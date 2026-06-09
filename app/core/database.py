@@ -1,6 +1,5 @@
 from app.config.config import get_settings
-# from sqlalchemy.pool import NullPool
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -16,7 +15,7 @@ engine = create_async_engine(
     echo=settings.DEBUG
 )
 
-sessionLocal= async_sessionmaker(
+async_session_factory = async_sessionmaker(
     autoflush=False,
     autocommit=False,
     expire_on_commit=False,
@@ -29,12 +28,13 @@ Base = declarative_base()
 
 # for apis req dep
 async def get_db() -> AsyncGenerator[AsyncSession ,None]:
-    async with sessionLocal() as db:
+    async with async_session_factory () as db:
         try:
             yield db
-        except Exception :
+            await db.commit()
+        except Exception as e :
             await db.rollback()
-            raise    
+            raise e   
         finally:
             await db.close() 
       
@@ -53,3 +53,7 @@ async def test_connection():
         # logger.error(f"❌ Database connection failed: {e}")
         print(f"❌ Database connection failed")
         return False
+
+async def dispose_engine():
+    """Clean up connections on app shutdown"""
+    await engine.dispose()

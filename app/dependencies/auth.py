@@ -14,7 +14,7 @@ async def get_current_user(
    
     #  Extract token from header 
     auth_header = request.headers.get("Authorization")
-    print(f'Missing : ${auth_header}')
+   
     if not auth_header:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -31,7 +31,7 @@ async def get_current_user(
                 detail="Invalid authentication scheme",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        print(f'Token : {token}')
+       
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -39,10 +39,10 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    #  Decode JWT token ---
+    #  Decode JWT token 
     try:
         payload = decode_token(token)  # Throws exception if invalid
-        print(f'Payload : ${payload}')
+        
         user_id = payload.get("sub")
         
         if not user_id:
