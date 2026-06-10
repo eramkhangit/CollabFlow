@@ -8,7 +8,7 @@ from datetime import timezone, datetime
 from sqlalchemy import UniqueConstraint
 
 class WorkspaceRole(str, enum.Enum):
-    ADMIN = "admin"
+    ADMIN = "workspace_admin"
     MEMBER = "member"
     GUEST = "guest"
 
@@ -21,11 +21,15 @@ class Workspace(Base):
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
-    owner = relationship("User", back_populates="owned_workspaces")
+    owner = relationship("UserModel", back_populates="owned_workspaces")
     members = relationship("WorkspaceMembers", back_populates="workspace", cascade="all, delete-orphan")
 
     created_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at=Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    
+    __table_args__ = (
+        UniqueConstraint("owner_id", "name", name="uq_owner_workspace_name"),
+    )
 
 # juction table for user and workspace
 class WorkspaceMembers(Base):
@@ -36,14 +40,20 @@ class WorkspaceMembers(Base):
     ) 
 
     id=Column(String(36),default=lambda: str(uuid.uuid4()) ,primary_key=True ,index=True ,nullable=False)
-
+    # user_name=String
     user_id=Column(String(36),ForeignKey("user.id"),nullable=False)   
     workspace_id=Column(String(36),ForeignKey("workspace.id"), nullable=False)
     is_active=Column(Boolean, default=True, nullable=False)
-    role = Column(Enum(WorkspaceRole), default=WorkspaceRole.MEMBER)
+    # invited_by = Column(String(36), ForeignKey("user.id"), nullable=True)
+    # role = Column(Enum(WorkspaceRole), default=WorkspaceRole.MEMBER)
+    role = Column(
+    Enum(WorkspaceRole, values_callable=lambda x: [e.value for e in x]),
+    default=WorkspaceRole.MEMBER,
+    nullable=False
+)
 
-    user = relationship("User", back_populates="workspace_memberships")
-    workspace = relationship("Workspace", back_populates="members")
+    user = relationship("UserModel", back_populates="workspace_memberships",lazy='select')
+    workspace = relationship("Workspace", back_populates="members" ,  lazy="select")
 
     joined_at=Column(DateTime(timezone=True), server_default=func.now())
     left_at=Column(DateTime(timezone=True),nullable=True)

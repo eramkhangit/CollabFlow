@@ -2,7 +2,8 @@ from passlib.context import CryptContext
 from app.config.config import get_settings
 from datetime import datetime, timedelta, timezone
 import uuid
-from jose import jwt
+from jose import JWTError, jwt
+from typing import Dict, Any
 
 settings = get_settings()
 
@@ -88,3 +89,47 @@ def verify_and_update_password(plain_password: str, hashed_password: str):
        
         print("Password verification/update failed")
         return False, None
+    
+def decode_token(token: str) -> Dict[str, Any]:
+    
+    if not token or not token.strip():
+        raise ValueError("Token cannot be empty")
+    
+    #  Get Decoding Parameters
+    secret_key = settings.SECRET_KEY
+    algorithm = settings.ALGORITHM
+    
+    # Attempt Decoding
+    try:
+        payload = jwt.decode(
+            token,                   
+            secret_key,             
+            algorithms=[algorithm]   
+        )
+        
+    except jwt.ExpiredSignatureError:
+        raise ValueError("Token has expired. Please refresh token.")
+        
+    except jwt.InvalidSignatureError:
+        raise ValueError("Invalid token signature. Token may be tampered.")
+        
+    except jwt.InvalidTokenError as e:
+        raise ValueError(f"Invalid token: {str(e)}")
+        
+    except JWTError as e:
+        raise ValueError(f"Token decode failed: {str(e)}")
+    
+    #  Validate Required Claims 
+    if "sub" not in payload:
+        raise ValueError("Token missing required 'sub' claim")
+    
+    
+    if "exp" in payload:
+        exp_timestamp = payload["exp"]
+        exp_datetime = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
+        current_datetime = datetime.now(timezone.utc)
+        
+        if current_datetime > exp_datetime:
+            raise ValueError("Token has expired")
+
+    return payload     
