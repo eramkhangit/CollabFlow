@@ -15,6 +15,9 @@ user_permissions=Table(
     Column('permission_id',String(36), ForeignKey('permissions.id'))
 )
 
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
 class PermissionName(str, enum.Enum):
     READ_USER = "read:user"
     WRITE_USER = "write:user"
@@ -67,10 +70,8 @@ class UserModel(Base):
     workspace_memberships = relationship("WorkspaceMembers", back_populates="user", lazy="select")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
 
-    created_at=Column(DateTime(timezone=True), 
-        server_default=func.now(),
-        default=lambda: datetime.now(timezone.utc) )
-    updated_at=Column(DateTime(timezone=True), onupdate=func.now(),default=lambda: datetime.now(timezone.utc))
+    created_at=Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at=Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
     last_login=Column(DateTime(timezone=True), nullable=True)
 
     def has_role(self, role:UserRole):
@@ -98,7 +99,7 @@ class RefreshToken(Base):
     user_agent = Column(String(500), nullable=True)
     
      # lifecycle
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     is_revoked = Column(Boolean, default=False, nullable=False)
     revoked_at = Column(DateTime(timezone=True), nullable=True)

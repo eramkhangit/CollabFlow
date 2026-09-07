@@ -4,6 +4,10 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import enum
 import uuid
+from datetime import datetime, timezone
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 class TicketStatus(str, enum.Enum):
     todo='todo'
@@ -61,8 +65,8 @@ class Ticket(Base):
     # sub_tasks = relationship("Ticket", back_populates="parent")
 
     # Audit fields (timestamps)
-    created_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at=Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    created_at=Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at=Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
     completed_at=Column(DateTime(timezone=True), nullable=True)
     due_date=Column(DateTime(timezone=True), nullable=True)
 

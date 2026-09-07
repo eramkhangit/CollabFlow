@@ -4,7 +4,8 @@ from sqlalchemy.sql import func
 import enum
 import uuid
 from sqlalchemy.orm import relationship
-# from app.models.auth import UserModel
+from datetime import datetime, timezone
+
 
 # junction table
 project_members=Table(
@@ -13,6 +14,9 @@ project_members=Table(
     Column('project_id',String(36), ForeignKey('project.id')),
     Column('user_id',String(36), ForeignKey('user.id'))
 )
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 class ProjectStatus(str, enum.Enum):
     active='active'
@@ -32,7 +36,7 @@ class Project(Base):
     members = relationship("UserModel", secondary=project_members, back_populates="projects") 
     tickets = relationship("Ticket", back_populates="project")
 
-    created_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at=Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    created_at=Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at=Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
     completed_at=Column(DateTime(timezone=True), nullable=True)
     due_date=Column(DateTime(timezone=True), nullable=True)

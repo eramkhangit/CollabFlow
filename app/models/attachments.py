@@ -4,6 +4,10 @@ from sqlalchemy.sql import func
 import uuid
 import enum
 from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 class AccessLevel(str, enum.Enum):
     private = "private"
@@ -39,7 +43,7 @@ class Attachments(Base):
     task_id = Column(String, ForeignKey('tasks.id', ondelete='SET NULL'), nullable=True, index=True)
 
     # timestamps
-    created_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    created_at=Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at=Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
-    uploaded_by=Column(Integer, ForeignKey('user.id', ondelete='SET NULL'), index=True)
+    uploaded_by=Column(String(36), ForeignKey('user.id', ondelete='SET NULL'), index=True)
