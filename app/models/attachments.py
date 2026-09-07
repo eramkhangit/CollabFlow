@@ -1,5 +1,5 @@
 from app.core.database import Base
-from sqlalchemy import Column, String, Enum, DateTime,BigInteger,Boolean,Integer ,ForeignKey,Text
+from sqlalchemy import Column, String, Enum, DateTime,BigInteger,Boolean ,ForeignKey,Text
 from sqlalchemy.sql import func
 import uuid
 import enum
@@ -36,8 +36,8 @@ class Attachments(Base):
     access_level=Column(Enum(AccessLevel), default=AccessLevel.project)
 
     # Storage
-    storage_path = Column(String(1000), nullable=False) # Relative path from upload root
-    storage_type = Column(String(50), default='local') # 'local', 's3', etc.
+    storage_path = Column(String(1000), nullable=False) 
+    storage_type = Column(String(50), default='local') 
 
     # permissions
     task_id = Column(String, ForeignKey('tasks.id', ondelete='SET NULL'), nullable=True, index=True)

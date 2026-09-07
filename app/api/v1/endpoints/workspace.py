@@ -126,10 +126,8 @@ async def add_member(
         
         return  MemberResponse(
             workspace_id=result["workspace_id"],
-            # workspace_name=result["workspace_name"],
             user_id=result["user_id"],
             email=result["email"],
-            # user_name=result["user_name"],
             role=result["role"],
             joined_at=result["joined_at"],
             is_active=result["is_active"],
@@ -145,7 +143,6 @@ async def add_member(
     
 @router.get('/get-user-workspaces/{user_id}',
         status_code=status.HTTP_200_OK,
-        # response_model=
         summary="Get a user's all workspaces", 
         description="Get all workspaces of a user"
         ) 

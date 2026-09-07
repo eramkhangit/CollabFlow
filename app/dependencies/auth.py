@@ -1,8 +1,5 @@
-# app/api/v1/dependencies/auth.py
-
 from fastapi import Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
 import logging
 from app.core.security import decode_token 
 from app.core.database import get_db
@@ -27,7 +24,7 @@ async def get_current_user(
     - Checks if user exists
     """
     
-    # ✅ Extract token from header
+    # Extract token 
     auth_header = request.headers.get("Authorization")
     
     if not auth_header:
@@ -38,7 +35,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # ✅ Validate Bearer scheme
+    # Validate Bearer scheme
     try:
         scheme, token = auth_header.split()
         if scheme.lower() != "bearer":
@@ -57,7 +54,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # ✅ Decode JWT token
+    # Decode JWT token
     try:
         payload = decode_token(token)
         user_id = payload.get("sub")
@@ -78,7 +75,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # ✅ Fetch user from database
+    # Fetch user from database
     try:
         user_service = UserService(db)
         user = await user_service.get_user_by_id(user_id)
@@ -115,7 +112,7 @@ async def get_current_active_user(
     - Email is verified (optional)
     """
     
-    # ✅ Check if user is active
+    # Check if user is active
     if not current_user.is_active:
         logger.warning(f"Inactive user attempted access: {current_user.email}")
         raise HTTPException(
@@ -123,7 +120,7 @@ async def get_current_active_user(
             detail="Inactive user. Please contact support.",
         )
     
-    # ✅ Optional - Email verification check
+    # Email verification check
     if hasattr(current_user, 'is_verified') and not current_user.is_verified:
         logger.warning(f"Unverified email: {current_user.email}")
         raise HTTPException(

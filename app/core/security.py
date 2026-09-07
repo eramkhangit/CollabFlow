@@ -1,4 +1,3 @@
-from passlib.context import CryptContext 
 from app.config.config import get_settings
 from datetime import datetime, timedelta, timezone
 import uuid
@@ -11,34 +10,6 @@ from argon2.exceptions import VerifyMismatchError, InvalidHash
 settings = get_settings()
 
 # logger = logging.getLogger(__name__)
-
-# Password hashing context
-# pwd_context = CryptContext(
-#     schemes=["argon2", "bcrypt"],
-#     deprecated="auto",
-#     argon2__memory_cost=102400,
-#     argon2__time_cost=3,
-#     argon2__parallelism=4,
-#     argon2__hash_len=32,
-# )
-
-# def hash_password(password: str) -> str:
-#     """
-#     Password hash using Argon2id
-#     """
-#     try:
-#         return pwd_context.hash(password)
-#     except Exception as e:
-#         print((f"Password hashing failed"))
-#         raise
-
-# def verify_password(plain_password: str, hashed_password: str) -> bool:
-#     try:
-#         return pwd_context.verify(plain_password, hashed_password)
-#     except Exception as e:
-#         print(f"Password verification failed: {type(e).__name__}: {e}")
-#         return False
-
 ph = PasswordHasher(
     time_cost=3,
     memory_cost=102400,
@@ -65,24 +36,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         print(f"Password verification failed: {type(e).__name__}: {e}")
         return False
 
-# def create_access_token(data: dict) -> str:
-
-#     payload = data.copy()
-
-#     expire = datetime.now(timezone.utc) + timedelta(
-#         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-#     )
-
-#     payload.update({
-#         "exp": expire,
-#         "type": "access"
-#     })
-
-#     return jwt.encode(
-#         payload,
-#         settings.SECRET_KEY,
-#         algorithm=settings.ALGORITHM
-#     )
 def create_access_token(user_id: str, role: str, email: str | None = None) -> str:
     payload = {
         "sub": user_id,

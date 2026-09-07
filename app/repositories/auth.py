@@ -31,7 +31,7 @@ class UserRepository:
     async def create_user(self, user: Union[dict, User]) -> UserResponse:
       """Register a new user."""
       try:
-        # --- Build the UserModel instance, hashing password if input is raw ---
+        # Build the UserModel instance, hashing password if input is raw
         if isinstance(user, UserModel):
             user_data = user
         elif isinstance(user, dict):
@@ -39,12 +39,12 @@ class UserRepository:
             user_dict["password"] = hash_password(user_dict["password"])
             user_data = UserModel(**user_dict)
         else:
-            # Pydantic schema (e.g. UserCreate)
+        
             user_dict = user.model_dump()
             user_dict["password"] = hash_password(user_dict["password"])
             user_data = UserModel(**user_dict)
 
-        # --- everything below now runs regardless of which branch was taken ---
+        # verything below now runs regardless of which branch was taken
         self.db.add(user_data)
         await self.db.flush()
 
@@ -147,7 +147,6 @@ class UserRepository:
         try:
             user.hashed_password = hashed_password 
             await self.db.commit()
-            # await self.db.refresh(user)
             return user
         except Exception:
             await self.db.rollback()
@@ -204,31 +203,23 @@ class UserRepository:
 
     async def update_role(self, user: UserModel, role: UserRole) -> UserModel:
        """Update user role"""
-    
-       # Validate input
+
        if not user:
            raise ValueError("User cannot be None")
     
        try:
-           # Update role
            user.role = role
-        
-           #  Commit changes (await with async)
            await self.db.commit()
-        
-           # Refresh to get latest state
            await self.db.refresh(user)
         
            return user
         
        except IntegrityError as e:
-           # Specific database error
            await self.db.rollback()
            print(f"Integrity error while updating role: {e}")
            raise
         
        except Exception as e:
-           # Catch other errors
            await self.db.rollback()
            print(f"Error updating role for user {user.id}: {e}")
            raise
@@ -258,7 +249,7 @@ class UserRepository:
             print("Error : user activation failed")
             raise      
 
-    # hard delete — permanently removes the row from the DB
+    # hard delete 
     async def delete_user(self, user:UserModel) -> None:
         try:
             self.db.delete(user)
@@ -295,7 +286,6 @@ class UserRepository:
         raise
         
       except Exception as e:
-        #  Unexpected error
         print(f"Unexpected error fetching user: {e}")
         raise
     
@@ -307,10 +297,8 @@ class UserRepository:
       """Count users with optional filters"""
     
       try:
-        #  Build count query
         query = select(func.count()).select_from(UserModel)
         
-        #  Add filters if provided
         if role is not None:
             query = query.where(UserModel.role == role)
         

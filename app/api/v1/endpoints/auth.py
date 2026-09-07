@@ -1,6 +1,4 @@
 from fastapi import APIRouter, Request, Response
-from app.core.database import get_db
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import status,Depends, HTTPException
 from app.schemas.auth import UserResponse, User,LoginResponse,LoginRequest
 from app.services.auth import UserService
@@ -117,13 +115,12 @@ async def logout(
     request: Request,
     response: Response,
     current_user: User = Depends(get_current_user),
-    service: UserService = Depends(get_auth_service)
-    # user_service: UserService = Depends(get_user_service) 
+    service: UserService = Depends(get_auth_service) 
 ):
     """
     Logout user - revoke refresh token and clear cookie
     """
-    # ✅ Get refresh token from cookie (NOT query parameter)
+    # Get refresh token from cookie (NOT query parameter)
     refresh_token = request.cookies.get("refresh_token")
     
     if not refresh_token:
@@ -144,7 +141,6 @@ async def logout(
     # Clear the cookie
     response.delete_cookie(
         key="refresh_token",
-        # path="/api/v1/user/refresh-token"  # Match the path used when setting
         path="/"
     )
     
