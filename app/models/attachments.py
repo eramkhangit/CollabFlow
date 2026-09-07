@@ -1,9 +1,13 @@
 from app.core.database import Base
-from sqlalchemy import Column, String, Enum, DateTime,BigInteger,Boolean,Integer ,ForeignKey,Text
+from sqlalchemy import Column, String, Enum, DateTime,BigInteger,Boolean ,ForeignKey,Text
 from sqlalchemy.sql import func
 import uuid
 import enum
 from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 class AccessLevel(str, enum.Enum):
     private = "private"
@@ -32,14 +36,14 @@ class Attachments(Base):
     access_level=Column(Enum(AccessLevel), default=AccessLevel.project)
 
     # Storage
-    storage_path = Column(String(1000), nullable=False) # Relative path from upload root
-    storage_type = Column(String(50), default='local') # 'local', 's3', etc.
+    storage_path = Column(String(1000), nullable=False) 
+    storage_type = Column(String(50), default='local') 
 
     # permissions
     task_id = Column(String, ForeignKey('tasks.id', ondelete='SET NULL'), nullable=True, index=True)
 
     # timestamps
-    created_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    created_at=Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at=Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
-    uploaded_by=Column(Integer, ForeignKey('user.id', ondelete='SET NULL'), index=True)
+    uploaded_by=Column(String(36), ForeignKey('user.id', ondelete='SET NULL'), index=True)

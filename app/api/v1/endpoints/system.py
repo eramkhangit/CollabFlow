@@ -29,10 +29,6 @@ async def get_system_health(response: Response, db: AsyncSession = Depends(get_d
 
     # Database
     try:
-        #  db = next(get_db())
-        #  db.execute(text("SELECT 1"))
-
-         # Execute async query
          await db.execute(text("SELECT 1"))
 
          health_data["components"]["database"] = { "status": "healthy"}

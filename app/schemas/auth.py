@@ -20,7 +20,7 @@ class UserBase(BaseSchema):
 
 class User(UserBase):
     is_active:bool = Field( default=True, description="User active status")
-    is_verified:bool = Field(default=False, )
+    is_verified:Optional[bool] = Field(default=False, )
     
     # model_config = {
     #     "from_attributes": True
@@ -40,8 +40,9 @@ class User(UserBase):
     @field_validator('user_name')
     def validate_username(cls, v):
         """Add username validation"""
-        if not v.isalnum():
-            raise ValueError('Username must be alphanumeric')
+        v = v.strip()
+        if not v:
+           raise ValueError("Username cannot be empty")
         return v
 
 class UserResponse(BaseSchema): 
@@ -78,7 +79,7 @@ class UserResponse(BaseSchema):
 class LoginResponse(BaseModel):
     """Login response with user info"""
     access_token: str
-    refresh_token: str = "bearer"
+    # refresh_token: str = "bearer"
     token_type: str
     user: Dict[str, Any]
 

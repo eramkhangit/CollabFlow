@@ -1,94 +1,86 @@
-from passlib.context import CryptContext 
 from app.config.config import get_settings
 from datetime import datetime, timedelta, timezone
 import uuid
 from jose import JWTError, jwt
 from typing import Dict, Any
+from fastapi import HTTPException, status
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, InvalidHash
 
 settings = get_settings()
 
 # logger = logging.getLogger(__name__)
-
-# Password hashing context
-pwd_context = CryptContext(
-    schemes=["argon2"],  # Argon2 primary,  "bcrypt": if  "bcrypt" used bcrypt fallback for old users if we don't use bcrypt then old user can't login
-    deprecated="auto",               # Auto-detect deprecated schemes
-    
-    # Argon2 parameters (This is OWASP recommended)
-    argon2__memory_cost=102400,      # 100 MB memory 
-    argon2__time_cost=3,             # 3 iterations
-    argon2__parallelism=4,           # 4 threads 
-    argon2__hash_len=32,             # 256-bit output
-    
-    # stop load bcrypt
-    bcrypt__rounds=None,             
+ph = PasswordHasher(
+    time_cost=3,
+    memory_cost=102400,
+    parallelism=4,
+    hash_len=32,
 )
 
 def hash_password(password: str) -> str:
-    """
-    Password hash using Argon2id
-    """
     try:
-        return pwd_context.hash(password)
+        return ph.hash(password)
     except Exception as e:
-        print((f"Password hashing failed"))
+        print(f"Password hashing failed: {e}")
         raise
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Password verify - automatically handles Argon2/bcrypt both
-    """
     try:
-        return pwd_context.verify(plain_password, hashed_password)
-    except Exception :
-        print("Password verification failed")
+        return ph.verify(hashed_password, plain_password)
+    except VerifyMismatchError:
+        return False
+    except InvalidHash:
+        print("Stored hash is not a valid argon2 hash")
+        return False
+    except Exception as e:
+        print(f"Password verification failed: {type(e).__name__}: {e}")
         return False
 
-def create_access_token(user_id:str, role:str) -> str:
-    """Create JWT token"""
-    now = datetime.now(timezone.utc)
-
+def create_access_token(user_id: str, role: str, email: str | None = None) -> str:
     payload = {
         "sub": user_id,
         "role": role,
-        "type": "access",     
-        "jti": str(uuid.uuid4()), 
-        "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)).timestamp())
-        }
-        
-    encoded_jwt = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        "type": "access",
+    }
+    if email:
+        payload["email"] = email
 
-    return encoded_jwt
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    payload["exp"] = expire
 
-def create_refresh_token(user_id: str,jti: str) -> str:
-    """refresh token generate a new access token"""
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
-    now = datetime.now(timezone.utc)
-
+def create_refresh_token(user_id: str, jti: str) -> str:
     payload = {
         "sub": user_id,
-        "type": "refresh",         
-        "jti": jti, 
-        "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_DAYS)).timestamp())
+        "jti": jti,
+        "type": "refresh",
+        "exp": datetime.now(timezone.utc) + timedelta(
+            days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+        )
     }
-    
-    encoded_jwt = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-    return encoded_jwt
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 def verify_and_update_password(plain_password: str, hashed_password: str):
     """
-    verify password, if password is in bcrypt then upgrade into Argon2
+    Verify password; if hash params are outdated, return a new hash to save.
     """
     try:
-        is_valid, new_hash = pwd_context.verify_and_update(plain_password, hashed_password)
-        return is_valid, new_hash
-    except Exception as e:
-       
-        print("Password verification/update failed")
+        ph.verify(hashed_password, plain_password)
+    except VerifyMismatchError:
         return False, None
+    except InvalidHash as e:
+        print(f"Invalid hash format: {e}")
+        return False, None
+
+    # valid password — check if it needs rehashing (e.g. params changed)
+    if ph.check_needs_rehash(hashed_password):
+        new_hash = ph.hash(plain_password)
+        return True, new_hash
+
+    return True, None
     
 def decode_token(token: str) -> Dict[str, Any]:
     
@@ -133,3 +125,26 @@ def decode_token(token: str) -> Dict[str, Any]:
             raise ValueError("Token has expired")
 
     return payload     
+
+def decode_refresh_token(token: str) -> dict:
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+
+        return payload
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )

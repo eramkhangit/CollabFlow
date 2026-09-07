@@ -7,6 +7,9 @@ import uuid
 from datetime import timezone, datetime
 from sqlalchemy import UniqueConstraint
 
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
 class WorkspaceRole(str, enum.Enum):
     ADMIN = "workspace_admin"
     MEMBER = "member"
@@ -24,9 +27,9 @@ class Workspace(Base):
     owner = relationship("UserModel", back_populates="owned_workspaces")
     members = relationship("WorkspaceMembers", back_populates="workspace", cascade="all, delete-orphan")
 
-    created_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at=Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
-    
+    created_at=Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at=Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
     __table_args__ = (
         UniqueConstraint("owner_id", "name", name="uq_owner_workspace_name"),
     )
@@ -55,5 +58,5 @@ class WorkspaceMembers(Base):
     user = relationship("UserModel", back_populates="workspace_memberships",lazy='select')
     workspace = relationship("Workspace", back_populates="members" ,  lazy="select")
 
-    joined_at=Column(DateTime(timezone=True), server_default=func.now())
+    joined_at=Column(DateTime(timezone=True), default=utcnow)
     left_at=Column(DateTime(timezone=True),nullable=True)
