@@ -65,7 +65,7 @@ class UserModel(Base):
     
     owned_workspaces = relationship("Workspace", back_populates="owner", lazy="select")
     workspace_memberships = relationship("WorkspaceMembers", back_populates="user", lazy="select")
-    
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
 
     created_at=Column(DateTime(timezone=True), 
         server_default=func.now(),
@@ -89,15 +89,19 @@ class RefreshToken(Base):
     __tablename__='refresh_token'
 
     id=Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    jti = Column(String(255), unique=True, nullable=False, index=True)  # from token payload
-    user_id= Column(String(36), ForeignKey("user.id"), nullable=False)
-    
+    jti = Column(String(255), unique=True, nullable=False, index=True)# from token payload
+    user_id = Column(String(36), ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True)
+
     # device info
     device_name = Column(String(255), nullable=True)
     ip_address = Column(String(50), nullable=True)
     user_agent = Column(String(500), nullable=True)
     
-    # lifecycle
-    created_at  = Column(DateTime(timezone=True), server_default=func.now())
-    expires_at  = Column(DateTime(timezone=True), nullable=False)
-    is_revoked  = Column(Boolean, default=False)    
+     # lifecycle
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    is_revoked = Column(Boolean, default=False, nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    last_used_at = Column(DateTime(timezone=True), nullable=True) 
+
+    user = relationship("UserModel", back_populates="refresh_tokens")

@@ -1,9 +1,9 @@
-from fastapi import HTTPException, status,Request
+from fastapi import HTTPException, status,Request,Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.auth import UserModel,UserRole
 from app.schemas.auth import User, LoginRequest,UserResponse
 from app.repositories.auth import UserRepository
-from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
+from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token,decode_refresh_token
 from typing import Optional
 from sqlalchemy.exc import IntegrityError # used for DB constraint violation error (like duplicate email)
 from datetime import datetime, timezone,timedelta
@@ -11,6 +11,8 @@ import uuid
 from app.config.config import get_settings
 from jose import jwt, JWTError
 from sqlalchemy import select
+import logging
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -62,7 +64,7 @@ class UserService:
             detail="Account could not be created due to a conflict. Please try again."
     )
     
-    async def login_user(self, login_data:LoginRequest, request: Request) -> dict :
+    async def login_user(self, login_data:LoginRequest, request: Request,response: Response) -> dict :
       
     #  check existing user
        existing_user= await self.repo.get_by_username_or_email(
@@ -87,7 +89,9 @@ class UserService:
            raise HTTPException(
            status_code=status.HTTP_401_UNAUTHORIZED,
            detail="Invalid email or password" )
-        
+
+       existing_user = await self.repo.update_last_login(existing_user)
+       
        # Create access token
        access_token = create_access_token(
                 user_id=str(existing_user.id),
@@ -114,88 +118,124 @@ class UserService:
            expires_at=expires_at
        )
 
-    # create refresh token with device info 
+     # ✅ Set refresh token as HttpOnly cookie (not in JSON body)
+       response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,                 
+        secure=False,                   # make True in production
+        samesite="strict",             # CSRF se bachaata hai; "lax" bhi chalega agar cross-site nav chahiye
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        # path="/api/v1/user/refresh-token"       # cookie only send on refresh endpoint 
+        path="/"     
+      )
+
        return {
-            "user": {
-                "id": str(existing_user.id),
-                "user_name": existing_user.user_name,
-                "email": existing_user.email
-               },
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer"
-        }
+        "user": {
+            "id": str(existing_user.id),
+            "user_name": existing_user.user_name,
+            "email": existing_user.email
+        },
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
+
+    async def refresh_access_token(self, request: Request, response: Response) -> dict:
+
+       refresh_token_str = request.cookies.get("refresh_token")
+
+       if not refresh_token_str:
+          raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token missing")
+
+       payload = decode_refresh_token(refresh_token_str)
+       user_id = payload.get("sub")
+       jti = payload.get("jti")
+
+       if not user_id or not jti:
+           raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+       stored_token = await self.repo.get_by_jti(jti) 
+
+       if not stored_token:
+           raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session not found, please login again")
+
+       # Check if token is revoked
+       if stored_token.is_revoked:  # Fixed: changed from 'revoked' to 'is_revoked'
+           raise HTTPException(status_code=401, detail="Refresh token has been revoked")
     
-    async def logout_user(self, refresh_token: str):
+       # Check if token is expired (with timezone handling)
+       now_utc = datetime.now(timezone.utc)
+       if stored_token.expires_at.replace(tzinfo=timezone.utc) < now_utc:
+           raise HTTPException(status_code=401, detail="Refresh token has expired")
 
-      try:
-        # decode token
-        payload = jwt.decode(
-            refresh_token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
+       user = await self.repo.get_user_by_id(user_id) # ✅ get_user_by_id, no int()
+
+       if not user or not user.is_active:
+           raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+
+       await self.repo.revoke_token(stored_token)  # ✅ object pass, not jti string
+
+       new_jti = str(uuid.uuid4())
+       new_refresh_token = create_refresh_token(user_id=str(user.id), jti=new_jti)
+
+       await self.repo.refresh_token( # ✅ refresh_token, not save_refresh_token
+           user_id=str(user.id),
+           jti=new_jti,
+           device_info={
+            "device_name": request.headers.get("User-Agent", "unknown"),
+            "ip_address": request.client.host if request.client else None,
+            "user_agent": request.headers.get("User-Agent")
+        },
+        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+       )
+
+       access_token = create_access_token(user_id=str(user.id), role=user.role) 
+       response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=settings.ENVIRONMENT == "production",
+        samesite="strict",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        # path="/api/v1/user/refresh-token"
+        path='/' # because cookie send with all requests
+       )
+
+       return {
+          "access_token": access_token,
+          "token_type": "bearer"
+       }
+
+    async def logout_user(self, request: Request, response: Response) -> dict:
+        """Logout user - revokes refresh token and clears cookie."""
+        
+        refresh_token = request.cookies.get("refresh_token")
+        
+        if not refresh_token:
+            return {"message": "Already logged out"}
+        
+        # ✅ Use the new revoke_refresh_token method
+        revoked = await self.revoke_refresh_token(refresh_token)
+        
+        if revoked:
+            logger.info("User logged out successfully")
+        else:
+            logger.warning("Failed to revoke refresh token during logout")
+        
+        # ✅ Always clear cookie
+        response.delete_cookie(
+            key="refresh_token",
+            path="/"
         )
-
-        # check type
-        if payload.get("type") != "refresh":
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid token type"
-            )
-
-        # get jti
-        jti = payload.get("jti")
-
-        if not jti:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid token"
-            )
-
-        #  find in DB
-        token = await self.repo.get_by_jti(jti)
-
-        if not token:
-            raise HTTPException(
-                status_code=404,
-                detail="Token not found"
-            )
-
-        if token.is_revoked:
-            raise HTTPException(
-                status_code=400,
-                detail="Token already revoked"
-            )
-
-        # revoke
-        await self.repo.revoke_token(token)
-
+        
         return {"message": "Logout successful"}
-
-      except JWTError:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired token"
-        )
-
-    # async def get_user_by_id(self, user_id:str) -> UserResponse :
-    #     """return user with given specific id"""
-    #     user = await self.repo.get_user_by_id(
-    #         # self ,
-    #         user_id)
-    #     if not user :
-    #        raise HTTPException(
-    #         status_code=status.HTTP_404_NOT_FOUND,
-    #         detail="User not found"
-    #         )
-    #     return user
+    
     async def get_user_by_id(self, user_id: str):
            """Basic user fetch - no relationships"""
     
            query = select(UserModel).where(UserModel.id == user_id)
            result = await self.db.execute(query)
            return result.unique().scalar_one_or_none()
-
 
     async def get_user_by_id_with_details(self, user_id: str):
         """User fetch with all relationships"""
@@ -252,3 +292,65 @@ class UserService:
             is_verified=is_verified
         )
         return {"total":total, "skip":skip, "limit":limit,"users":users} 
+
+    async def revoke_refresh_token(self, refresh_token_str: str) -> bool:
+        """
+        Revoke a refresh token by its string value.
+        
+        Args:
+            refresh_token_str: The refresh token string from cookie
+            
+        Returns:
+            bool: True if revoked successfully, False otherwise
+            
+           Security:
+            - Decodes JWT to get jti
+            - Validates token type is 'refresh'
+            - Revokes token in database
+            - Handles all errors gracefully
+        """
+        try:
+            # Decode the token
+            payload = jwt.decode(
+                refresh_token_str,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM]
+            )
+            
+            # ✅ Validate token type
+            if payload.get("type") != "refresh":
+                logger.warning("Attempted to revoke non-refresh token")
+                return False
+            
+            # ✅ Get jti from payload
+            jti = payload.get("jti")
+            if not jti:
+                logger.warning("Token missing jti claim")
+                return False
+            
+            # ✅ Find token in database
+            token = await self.repo.get_by_jti(jti)
+            
+            if not token:
+                logger.warning(f"Token not found: {jti}")
+                return False
+            
+            # ✅ Check if already revoked
+            if token.is_revoked:
+                logger.info(f"Token already revoked: {jti}")
+                return True
+            
+            # ✅ Revoke the token
+            await self.repo.revoke_token(token)
+            logger.info(f"Token revoked successfully: {jti}")
+            return True
+            
+        except jwt.ExpiredSignatureError:
+            logger.warning("Attempted to revoke expired token")
+            return False
+        except jwt.JWTError as e:
+            logger.warning(f"Invalid JWT during revocation: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Error revoking refresh token: {e}")
+            return False
