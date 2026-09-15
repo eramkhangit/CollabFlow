@@ -21,10 +21,7 @@ class UserBase(BaseSchema):
 class User(UserBase):
     is_active:bool = Field( default=True, description="User active status")
     is_verified:Optional[bool] = Field(default=False, )
-    
-    # model_config = {
-    #     "from_attributes": True
-    # }
+
 
     @field_validator('password')
     def validate_password(cls, v):
@@ -44,6 +41,13 @@ class User(UserBase):
         if not v:
            raise ValueError("Username cannot be empty")
         return v
+
+# class UserBrief(BaseModel):
+#     model_config = ConfigDict(from_attributes=True)
+
+#     id: str
+#     name: str
+#     email: str
 
 class UserResponse(BaseSchema): 
     """registration response info of user"""
