@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api.v1.endpoints import auth , system, workspace,projects
+from app.api.v1.endpoints import auth , system, workspace,projects,task
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
@@ -22,4 +22,5 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v1") 
 app.include_router(workspace.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
+app.include_router(task.router, prefix="/api/v1")
 app.include_router(system.router)

@@ -1,39 +1,7 @@
-# from pydantic import BaseModel, Field
-# from typing import Optional
-# from datetime import datetime
-# from app.models.project import ProjectStatus
-
-
-# class ProjectCreate(BaseModel):
-#     name: str = Field(..., min_length=1, max_length=200)
-#     description: Optional[str] = None
-#     status: ProjectStatus = ProjectStatus.active
-#     due_date: Optional[datetime] = None
-#     # member_ids: Optional[list[str]] = None  #  attach members on create
-
-
-# class ProjectOut(BaseModel):
-#     id: str
-#     name: str
-#     status: ProjectStatus
-#     description: Optional[str] = None
-#     owned_by: str
-#     created_at: datetime
-#     updated_at: datetime
-#     completed_at: Optional[datetime] = None
-#     due_date: Optional[datetime] = None
-
-#     class Config:
-#         from_attributes = True  
-
-
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 from app.models.project import ProjectStatus
-
-
-# ---------- Request schemas ----------
 
 class ProjectCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)

@@ -42,6 +42,7 @@ class Project(Base):
     owner = relationship("UserModel", foreign_keys=[owned_by], back_populates="owned_projects")
     members = relationship("UserModel", secondary=project_members, back_populates="projects")
     tickets = relationship("Ticket", back_populates="project")
+    tasks = relationship("Task", back_populates="project")
 
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
